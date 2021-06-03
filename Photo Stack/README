@@ -1,0 +1,5 @@
+PhotoStack requires Python 3 to run.
+Drag images into the same folder as the .py file and the .bat file.
+Right click the .bat file and click Run As Administrator.
+Follow the instructions on screen to stitch the photos together in which configuration is most suitable.
+Change the maximum dimensions if needed in the settings text file.
