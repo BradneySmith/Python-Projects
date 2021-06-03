@@ -1,0 +1,81 @@
+from PIL import Image
+import os
+
+directory = os.getcwd()
+os.chdir(directory)
+SEPARATOR = 5
+
+options = {'direction':'horizontal','watermark':'on'}
+
+def get_new_dimensions(dimensions, direction):
+    width, height = dimensions
+    ratio = width/height
+    if direction == 'vertical':
+        new_width = min_width
+        new_height = round(min_width/ratio)
+    elif direction == 'horizontal':
+        new_width = round(min_height*ratio)
+        new_height = min_height
+        
+    return new_width, new_height
+
+
+# Get direction
+direction = ''
+while direction not in ['0','1']:
+    direction = input('Stack images vertically [0] or horizontally [1]: ')
+    if direction not in ['0','1']:
+        print(direction+' is not a valid option')
+if direction == '0':
+    options['direction'] = 'vertical'
+if direction == '1':
+    options['direction'] = 'horizontal'
+    
+# Get filename
+filename = input('Enter a filename: ')
+
+# Get list of images in the current folder
+file_list = []
+extensions = ['png','jpg','jpeg']
+for root, dirs, files in os.walk('.'):
+    for file in files:
+        if file.split('.')[1] in extensions:
+            file_list.append(file)
+    break
+
+# Get the minimum width and height   
+images = [Image.open(x) for x in file_list]
+widths, heights = zip(*(i.size for i in images))
+min_width, min_height = min(widths), min(heights)
+    
+# Resize each file to the minimum width
+resized_images = []
+for file in file_list:
+    image = Image.open(file)
+    new_width, new_height = get_new_dimensions(image.size,options['direction'])
+    image = image.resize((new_width, new_height), Image.ANTIALIAS)
+    resized_images.append(image)
+new_widths, new_heights = zip(*(i.size for i in resized_images)) 
+
+    
+# Stack images vertically   
+if options['direction'] == 'vertical':
+    y_offset = 0
+    total_height = sum(new_heights)
+    new_image = Image.new('RGB', (min_width, total_height))
+    for count, im in enumerate(resized_images):
+        new_image.paste(im, (0,y_offset+(count*SEPARATOR)))
+        y_offset += im.size[1]
+    new_image.save(filename+'.jpg')
+
+    
+    
+# Stack images horizontally  
+if options['direction'] == 'horizontal':
+    x_offset = 0
+    total_height = sum(new_heights)
+    new_image = Image.new('RGB', (sum(new_widths), max(new_heights)))
+    for count, im in enumerate(resized_images):
+        new_image.paste(im, (x_offset+(count*SEPARATOR), 0))
+        x_offset += im.size[0]
+    new_image.save(filename+'.jpg')

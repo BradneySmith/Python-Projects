@@ -1,0 +1,200 @@
+from PIL import Image
+import os
+
+directory = os.getcwd()
+os.chdir(directory)
+SEPARATOR = 5
+
+options = {'layout':'','filename':'','MAX_WIDTH':0,'MAX_HEIGHT':0}
+
+def check_constraints():
+    with open('settings.txt','r') as f:
+        text = f.readlines()
+        # Check width
+        try:
+            options['MAX_WIDTH'] = int(text[4].split(':')[1][0:])
+        except:
+            pass
+        
+        # Check height
+        try:
+            options['MAX_HEIGHT'] = int(text[5].split(':')[1][0:])
+        except:
+            pass
+        
+        if options['MAX_WIDTH'] > 0 or options['MAX_HEIGHT'] > 0:
+            return 1
+        
+        else: 
+            return 0
+        
+        
+
+                                                                              
+
+# Get layout
+def get_layout():
+    layout = ''
+    layout_choices = ['0','1','2','3']
+    while layout not in layout_choices:
+        layout = input('Select a layout: \n\nVertically downwards [0] \nHorizontally across  [1] \n2 column grid        [2]\n3 column grid        [3]\n\nEnter an option: ')
+        if layout not in layout_choices:
+            print(layout+' is not a valid option')
+    options['layout'] = layout
+
+# Get filename
+def get_filename():
+    filename = input('Enter a filename: ')
+    options['filename'] = filename
+
+# Get list of images in the current folder
+def get_image_list():
+    file_list = []
+    extensions = ['png','jpg','jpeg']
+    for root, dirs, files in os.walk('.'):
+        for file in files:
+            if file.split('.')[1] in extensions:
+                file_list.append(file)
+        break
+    return file_list
+
+# Get the minimum width and height
+def get_min_dimensions(file_list):
+    images = [Image.open(x) for x in file_list]
+    widths, heights = zip(*(i.size for i in images))
+    min_width, min_height = min(widths), min(heights)
+    return min_width, min_height
+
+# Get new dimensions for each image
+def get_new_dimensions(dimensions, min_width, min_height):
+    width, height = dimensions
+    ratio = width/height
+    if options['layout'] == '0':
+        new_width = min_width
+        new_height = round(min_width/ratio)
+    else:
+        new_width = round(min_height*ratio)
+        new_height = min_height
+        
+    return new_width, new_height
+
+# Resize each file to the minimum width
+def resize_to_min_width(file_list, min_width, min_height):
+    resized_images = []
+    for file in file_list:
+        image = Image.open(file)
+        new_width, new_height = get_new_dimensions(image.size, min_width, min_height)
+        image = image.resize((new_width, new_height), Image.ANTIALIAS)
+        resized_images.append(image)
+    new_widths, new_heights = zip(*(i.size for i in resized_images))
+    return resized_images, new_widths, new_heights
+
+# Stack images vertically
+def stack_vertically(resized_images, new_heights, min_width):
+    y_offset = 0
+    total_height = sum(new_heights)
+    new_image = Image.new('RGB', (min_width, total_height))
+    for count, im in enumerate(resized_images):
+        new_image.paste(im, (0,y_offset+(count*SEPARATOR)))
+        y_offset += im.size[1]
+
+    return new_image
+
+# Stack images horizontally  
+def stack_horizontally(resized_images, new_widths, min_height):
+    x_offset = 0
+    total_width = sum(new_widths)
+    new_image = Image.new('RGB', (total_width, min_height))
+    for count, im in enumerate(resized_images):
+        new_image.paste(im, (x_offset+(count*SEPARATOR), 0))
+        x_offset += im.size[0]
+    
+    return new_image
+    
+# Stack images in grid with two columns
+def stack_two_column_grid(resized_images, new_heights, min_width):
+    y_offset = 0
+    total_height = round(sum(new_heights)/2)
+    new_image = Image.new('RGB', ((min_width*2)+SEPARATOR, total_height))
+    for count, im in enumerate(resized_images):
+        if count % 2 == 0:
+            new_image.paste(im, (0,y_offset+(count*SEPARATOR)))
+        if count % 2 == 1:
+            new_image.paste(im, (0+min_width+SEPARATOR,y_offset+((count-1)*SEPARATOR)))
+            y_offset += im.size[1]
+
+    return new_image
+
+# Stack images in grid with three columns
+def stack_three_column_grid(resized_images, new_heights, min_width):
+    y_offset = 0
+    total_height = round(sum(new_heights)/3)
+    new_image = Image.new('RGB', ((min_width*3)+SEPARATOR, total_height))
+    for count, im in enumerate(resized_images):
+        if count % 3 == 0:
+            new_image.paste(im, (0,y_offset+(count*SEPARATOR)))
+        if count % 3 == 1:
+            new_image.paste(im, (0+min_width+SEPARATOR,y_offset+((count-1)*SEPARATOR)))
+        if count % 3 == 2:
+            new_image.paste(im, ((0+min_width+SEPARATOR)*2,y_offset+((count-2)*SEPARATOR)))
+            y_offset += im.size[1]
+
+    return new_image
+
+# Resize entire image if constraints are set in setting.txt
+def final_resize(new_image):
+    
+    current_width, current_height = new_image.size
+    ratio = current_width/current_height
+    
+    # Just width is constrained
+    if options['MAX_WIDTH'] > 0 and options['MAX_HEIGHT'] == 0:
+        final_width = options['MAX_WIDTH']
+        final_height = round(options['MAX_WIDTH']/ratio)
+        
+    # Just height is constrained
+    if options['MAX_WIDTH'] == 0 and options['MAX_HEIGHT'] > 0:
+        final_height = round(options['MAX_HEIGHT'])
+        final_width = ratio*final_height
+    
+    # Both width and height are constrainted
+    if options['MAX_WIDTH'] > 0 and options['MAX_HEIGHT'] > 0:
+        final_width = options['MAX_WIDTH']
+        final_height = options['MAX_HEIGHT']
+
+    # Resize
+    new_image = new_image.resize((round(final_width), round(final_height)), Image.ANTIALIAS)
+    
+    return new_image
+
+def main():
+    constraints_set = check_constraints()
+    get_layout()
+    get_filename()
+    file_list = get_image_list()
+    min_width, min_height = get_min_dimensions(file_list)
+    resized_images, new_widths, new_heights = resize_to_min_width(file_list, min_width, min_height)
+    
+    # Vertical
+    if options['layout'] == '0':
+        new_image = stack_vertically(resized_images, new_heights, min_width)
+        
+    # Horizontal    
+    if options['layout'] == '1':
+        new_image = stack_horizontally(resized_images, new_widths, min_height)
+        
+    # Grid with 2 columns 
+    if options['layout'] == '2':
+        new_image = stack_two_column_grid(resized_images, new_heights, min_width)
+        
+    # Grid with 3 columns 
+    if options['layout'] == '3':
+        new_image = stack_three_column_grid(resized_images, new_heights, min_width)
+    
+    # Check if constraints are set in settings.txt and resize if necessary
+    if constraints_set == 1:
+        new_image = final_resize(new_image)   
+    new_image.save(options['filename']+'.jpg')
+    print(options['filename']+'.jpg saved with dimensions '+str(new_image.size[0])+' x '+str(new_image.size[1]))
+
+main()

@@ -1,0 +1,6 @@
+# If left blank, the dimensions of the new image will depend on the minmum dimensions of the component images
+# To set a the values below (in pixels) type a space after the : and then the number
+# Setting both the width and the height may cause the image to be distorted
+
+maximum_width: 600
+maximum_height: 
